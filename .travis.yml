@@ -1,7 +1,10 @@
 language: cpp
+dist: trusty
+sudo: false
 
 compiler:
   - clang
+  - gcc
 
 addons:
   apt:
