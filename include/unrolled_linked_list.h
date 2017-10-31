@@ -24,49 +24,41 @@ class UnrolledLinkedList final {
 		static constexpr auto mask = 63u; // 0b111111
 
 		constexpr Node() = default;
-		Node(const Node& other): stor{other.stor}, size{other.size}, next{other.next ? new Node{*other.next} : nullptr} {}
+		Node(const Node& other): stor{other.stor}, next{other.next ? new Node{*other.next} : nullptr} {}
 
-		T pop_back() {
-			// if there is a next, there is more data ahead
-			if (next) {
-				T&& data = next->pop_back();
-				// TODO: fix boundary performance issue
-				if (next->size == 0) {
-					next.release();
-				}
-				return std::move(data);
+		T pop_back(size_t index) {
+			if (index < capacity) {
+				return std::move(stor[index]);
 			}
-			--size;
-			return std::move(stor[size]);
+
+			T&& data = next->pop_back(index - capacity);
+			// TODO: fix boundary performance issue
+			if (index == capacity) {
+				next.release();
+			}
+			return std::move(data);
 		}
 
-		void push_back(T&& data) {
-			// if there is a next, there is more room ahead
-			if (next) {
-				next->push_back(std::move(data));
-			} else {
-				if (size == capacity()) {
-					next.reset(new Node);
-					next->push_back(std::move(data));
-				} else {
-					stor[size] = std::move(data);
-					++size;
-				}
+		void push_back(T&& data, size_t index) {
+			if (index < capacity) {
+				stor[index] = std::move(data);
+				return;
 			}
+
+			if (not next) {
+				next.reset(new Node);
+			}
+			next->push_back(std::move(data), index - capacity);
 		}
 
 		// proxy functions
 		T& at(size_t index) { return stor[index]; }
 		const T& at(size_t index) const { return stor[index]; }
-		constexpr size_t capacity() const { return stor.max_size(); }
 
 		// data and next should fit inside a single cache line
-		static constexpr auto rsv = sizeof(uint8_t) + sizeof(std::unique_ptr<Node>);
-		std::array<T, detail::efficient_amount(sizeof(T), rsv)> stor;
+		static constexpr auto capacity = detail::efficient_amount(sizeof(T), sizeof(std::unique_ptr<Node>));
+		std::array<T, capacity> stor;
 
-		// at most 56 bit-sized objects will fit, so int8 is enough
-		// TODO: use lower bits of next to store size
-		uint8_t size = 0u;
 		std::unique_ptr<Node> next = nullptr;
 	};
 
@@ -81,13 +73,13 @@ public:
 	}
 
 	T pop_back() {
-		T&& data = head->pop_back();
+		T&& data = head->pop_back(size_ - 1);
 		--size_;
 		return std::move(data);
 	}
 
 	void push_back(T data) {
-		head->push_back(std::move(data));
+		head->push_back(std::move(data), size_);
 		++size_;
 	}
 
@@ -97,8 +89,8 @@ public:
 		}
 
 		Node* it = head.get();
-		while (index > it->size) {
-			index -= it->size;
+		while (index > it->capacity) {
+			index -= it->capacity;
 			it = it->next.get();
 		}
 		return it->at(index);
@@ -110,8 +102,8 @@ public:
 		}
 
 		Node* it = head.get();
-		while (index > it->size) {
-			index -= it->size;
+		while (index > it->capacity) {
+			index -= it->capacity;
 			it = it->next.get();
 		}
 		return it->at(index);
