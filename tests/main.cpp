@@ -12,11 +12,17 @@
 #include <heap.h>
 #include <linked_list.h>
 #include <rb_tree.h>
+#include <unrolled_linked_list.h>
 
 int main() {
 	std::cout << "testing Stack<ArrayList<T>> ... ";
 	std::cout.flush();
 	tests::test_stack<structures::Stack<int, structures::ArrayList<int>>>();
+	std::cout << "OK" << std::endl;
+
+	std::cout << "testing Stack<UnrolledLinkedList<T>> ... ";
+	std::cout.flush();
+	tests::test_stack<structures::Stack<int, structures::UnrolledLinkedList<int>>>();
 	std::cout << "OK" << std::endl;
 
 	std::cout << "testing Stack<LinkedList<T>>... ";
